@@ -7,21 +7,28 @@ import {libWeb} from "@tonclient/lib-web";
 import {signerKeys, TonClient, signerNone} from "@tonclient/core";
 
 // import {DidStorageContract} from "./contracts/DidStorageContract.js";
+// import {DEXClientContract} from "../extensions/contracts/testNet/DEXClientMainNet.js";
+
+// import {DEXClientContract} from "../extensions/contracts/mainNet/DEXClient.js";
 import {DEXClientContract} from "../extensions/contracts/testNet/DEXClientMainNet.js";
+
 // import {DidDocumentContract} from "./contracts/DidDocumentContract.js";
 
-import {DidStorageContract} from "./contracts/new/DidStorageContractNew.js";
-import {DidDocumentContract} from "./contracts/new/DidDocumentContractNew.js";
+// dev net
+// import {DidStorageContract} from "./contracts/new/DidStorageContractNew.js";
+// import {DidDocumentContract} from "./contracts/new/DidDocumentContractNew.js";
+import {DidStorageContract} from "./contracts/new/DidStorageContractDev.js";
+import {DidDocumentContract} from "./contracts/new/DidDocumentContractDev.js";
+
+// main net
+// import {DidStorageContract} from "./contracts/new/DidStorageContractMain.js";
+// import {DidDocumentContract} from "./contracts/new/DidDocumentContractMain.js";
 
 import {useQuery} from "react-query";
 
 import * as ed from 'noble-ed25519';
 
 import sha256 from 'crypto-js/sha256';
-
-
-
-
 
 //const {TonClient} = require("@tonclient/core");
 TonClient.useBinaryLibrary(libWeb);
@@ -30,13 +37,11 @@ const client = new TonClient({network: {endpoints: ["net.ton.dev"]}});
 const pidCrypt = require("pidcrypt");
 require("pidcrypt/aes_cbc");
 
-// let dexrootAddr =
-// 	"0:49709b1fa8adc2768c4c90f1c6fef0bdb01dc959a8052b3ed072de9dfd080424";
+// main net
+// let dexrootAddr = "0:26e01cf61fd79264c21b1085f3d5de0481024ce54bfaf9de6507b4731bf8c94d";
 
-// let dexrootAddr =
-// 	"0:c9e74798ee45b2e57661162dedeb81e8d015402f56c597747120e0de295f7441";
-
-let dexrootAddr = "0:ee63d43c1f5ea924d3d47c5a264ad2661b5a4193963915d89f3116315350d7d3";
+// dev net
+let dexrootAddr = "0:1f18747f268394007398024e6be2878e221fe931fe832df62033c538d091d0d5";
 
 let walletAddr =
 	"0:da136604399797f5d012ed406d541f4046d2aa5eca55290d500d2bcdfd9e2148";
@@ -127,8 +132,10 @@ function WelcomeDidPage() {
 		if (
 			clientAddress ===
 			"0:0000000000000000000000000000000000000000000000000000000000000000"
-		)
+		){
+			console.log(0);
 			return 0;
+		}
 		try {
 			let clientBalance = await client.net.query_collection({
 				collection: "accounts",
@@ -148,13 +155,11 @@ function WelcomeDidPage() {
 	}
 
 	async function createDID3() {
-
-
 		let bal = getClientBalance(localStorage.address);
 
 		bal.then(
 			async (data) => {
-				if(data < 1){
+				if(data < 0.5){
 					alert("Insufficient balance");
 					return;
 				} else {
@@ -211,6 +216,7 @@ function WelcomeDidPage() {
 						console.log(res);
 					} catch (e) {
 						console.log(e);
+						setLoader(false);
 					}
 
 					// try{
@@ -615,10 +621,10 @@ function WelcomeDidPage() {
 
 	async function updateDidPub() {
 
-		if(curentPub == undefined) {
-			alert("Set PubKey");
-			return;
-		}
+		// if(curentPub == undefined) {
+		// 	alert("Set PubKey");
+		// 	return;
+		// }
 		if(curentAddr == undefined) {
 			alert("Set Address");
 			return;
@@ -677,9 +683,8 @@ function WelcomeDidPage() {
 							signer: {type: "None"},
 							is_internal: true,
 							call_set: {
-								function_name: "newDidIssuerPubKey",
+								function_name: "newDidIssuerAddr",
 								input: {
-									pubKey: "0x"+curentPub,
 									issuerAddr: curentAddr
 								},
 							},
@@ -979,8 +984,8 @@ function WelcomeDidPage() {
 						{didDoc.status}
 					</div>
 					<div className="attribute">
-						<span>issuerPubKey:</span>
-						{didDoc.issuerPubKey}
+						<span>PubKey:</span>
+						{didDoc.PubKey}
 					</div>
 					<div className="attribute">
 						<span>issuerAddres:</span>
@@ -1000,7 +1005,7 @@ function WelcomeDidPage() {
 					<div className="menu-document">
 						<span className={menuCurent==0?"active":""} onClick={()=>setMenuCurent(0)}>Change document</span>
 						<span className={menuCurent==1?"active":""} onClick={()=>setMenuCurent(1)}>Change status</span>
-						<span className={menuCurent==2?"active":""} onClick={()=>setMenuCurent(2)}>Change owner</span>
+						<span className={menuCurent==2?"active":""} onClick={()=>setMenuCurent(2)}>Change controller</span>
 						<span className={menuCurent==3?"active":""} onClick={()=>setMenuCurent(3)}>Delete document</span>
 						
 					</div>
@@ -1042,7 +1047,7 @@ function WelcomeDidPage() {
 						</div>
 						<div className={menuCurent==2?"menu-item":"hide"}>
 							<div>
-								<input type="text" placeholder="New PubKey" onChange={(ev)=>{setCurentPub(ev.target.value)}}/>
+								{/* <input type="text" placeholder="New PubKey" onChange={(ev)=>{setCurentPub(ev.target.value)}}/> */}
 								<input type="text" placeholder="New Address" onChange={(ev)=>{setCurentAddr(ev.target.value)}}/>
 							</div>
 							<button onClick={updateDidPub}>Save Changes</button>

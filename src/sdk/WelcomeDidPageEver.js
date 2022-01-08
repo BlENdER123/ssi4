@@ -10,8 +10,8 @@ import {signerKeys, TonClient, signerNone} from "@tonclient/core";
 import {DEXClientContract} from "../extensions/contracts/testNet/DEXClientMainNet.js";
 // import {DidDocumentContract} from "./contracts/DidDocumentContract.js";
 
-import {DidStorageContract} from "./contracts/new/DidStorageContractNew.js";
-import {DidDocumentContract} from "./contracts/new/DidDocumentContractNew.js";
+import {DidStorageContract} from "./contracts/new/DidStorageContractDev.js";
+import {DidDocumentContract} from "./contracts/new/DidDocumentContractDev.js";
 
 import {useQuery} from "react-query";
 
@@ -33,7 +33,12 @@ require("pidcrypt/aes_cbc");
 // let dexrootAddr =
 // 	"0:c9e74798ee45b2e57661162dedeb81e8d015402f56c597747120e0de295f7441";
 
-let dexrootAddr = "0:ee63d43c1f5ea924d3d47c5a264ad2661b5a4193963915d89f3116315350d7d3";
+// dev net
+// let dexrootAddr = "0:ee63d43c1f5ea924d3d47c5a264ad2661b5a4193963915d89f3116315350d7d3";
+let dexrootAddr = "0:1f18747f268394007398024e6be2878e221fe931fe832df62033c538d091d0d5";
+
+//main net 
+// let dexrootAddr = "0:26e01cf61fd79264c21b1085f3d5de0481024ce54bfaf9de6507b4731bf8c94d";
 
 let walletAddr =
 	"0:da136604399797f5d012ed406d541f4046d2aa5eca55290d500d2bcdfd9e2148";
@@ -632,10 +637,10 @@ function WelcomeDidPage() {
 
 	async function updateDidPub() {
 
-		if(curentPub == undefined) {
-			alert("Set PubKey");
-			return;
-		}
+		// if(curentPub == undefined) {
+		// 	alert("Set PubKey");
+		// 	return;
+		// }
 		if(curentAddr == undefined) {
 			alert("Set Address");
 			return;
@@ -692,9 +697,8 @@ function WelcomeDidPage() {
                 bounce: true,
                 payload: {
                     abi: JSON.stringify(DidDocumentContract.abi),
-                    method: 'newDidIssuerPubKey',
+                    method: 'newDidIssuerAddr',
                     params: {
-                        pubKey: "0x"+curentPub,
 						issuerAddr: curentAddr
                     }
                 }
@@ -842,7 +846,7 @@ function WelcomeDidPage() {
 
 	}
 
-	function testreq() {
+	async function testreq() {
 
 		// let data = '{"user":{"did": "did:everscale:f28b5fb95c2bfdc70b939de1ce2d79e1b8d233223596490827a91bc600fd876d"}}';
 
@@ -872,6 +876,33 @@ function WelcomeDidPage() {
 		// 		},
 		// }).then((response) => console.log(response));
 
+
+		let tempDid = DID.split(':')[2];
+		console.log(DID);
+
+		
+		// setLoader(true);
+		console.log('initInpageProvider...');
+        
+        const provider = await import('ton-inpage-provider');
+        if (!(await provider.hasTonProvider())) {
+            throw new Error('Extension is not installed');
+        }
+       
+        await ton.ensureInitialized();
+
+        const {accountInteraction} = await ton.rawApi.requestPermissions({
+            permissions: ['tonClient', 'accountInteraction']
+        });
+
+        console.log(accountInteraction);
+
+
+        if (accountInteraction == null) {
+            throw new Error('Insufficient permissions');
+        }
+
+
 		function sendSign(data) {
 			fetch("https://ssi.defispace.com/auth/login", {
 				method: "post",
@@ -884,7 +915,7 @@ function WelcomeDidPage() {
 					"user":
 					{
 						"signatureHex":"${data}",
-						"did": "f28b5fb95c2bfdc70b939de1ce2d79e1b8d233223596490827a91bc600fd876d"
+						"did": "${tempDid}"
 				}
 				}`
 				}).then((data)=>{
@@ -920,7 +951,7 @@ function WelcomeDidPage() {
 				'Connection' : 'keep-alive'
 			},
 
-			body: '{"user":{"did": "f28b5fb95c2bfdc70b939de1ce2d79e1b8d233223596490827a91bc600fd876d"}}'
+			body: `{"user":{"did": "${tempDid}"}}`
 			})
 			.then( (response) => { 
 				return response.json();
@@ -985,7 +1016,7 @@ function WelcomeDidPage() {
 					</div>
 					<div className="attribute">
 						<span>issuerPubKey:</span>
-						{BigInt(didDoc.issuerPubKey).toString(16)}
+						{BigInt(didDoc.PubKey).toString(16)}
 					</div>
 					<div className="attribute">
 						<span>issuerAddres:</span>
@@ -1005,7 +1036,7 @@ function WelcomeDidPage() {
 					<div className="menu-document">
 						<span className={menuCurent==0?"active":""} onClick={()=>setMenuCurent(0)}>Change document</span>
 						<span className={menuCurent==1?"active":""} onClick={()=>setMenuCurent(1)}>Change status</span>
-						<span className={menuCurent==2?"active":""} onClick={()=>setMenuCurent(2)}>Change owner</span>
+						<span className={menuCurent==2?"active":""} onClick={()=>setMenuCurent(2)}>Change controller</span>
 						<span className={menuCurent==3?"active":""} onClick={()=>setMenuCurent(3)}>Delete document</span>
 						
 					</div>
@@ -1047,7 +1078,7 @@ function WelcomeDidPage() {
 						</div>
 						<div className={menuCurent==2?"menu-item":"hide"}>
 							<div>
-								<input type="text" placeholder="New PubKey" onChange={(ev)=>{setCurentPub(ev.target.value)}}/>
+								{/* <input type="text" placeholder="New PubKey" onChange={(ev)=>{setCurentPub(ev.target.value)}}/> */}
 								<input type="text" placeholder="New Address" onChange={(ev)=>{setCurentAddr(ev.target.value)}}/>
 							</div>
 							<button onClick={updateDidPub}>Save Changes</button>
@@ -1100,6 +1131,8 @@ function WelcomeDidPage() {
 						Log in with DID
 					</button>
 
+
+					{/* <button onClick={testreq}>test</button> */}
 				</div>
 			)}
 		</Router>

@@ -4,10 +4,14 @@
 
 In the project directory, you can run:
 
+### `npm install`
+
+Runs this command to install all project dependencies
+
 ### `npm start`
 
 Runs the app in the development mode.<br>
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+Open [http://localhost:3005](http://localhost:3005) to view it in the browser.
 
 The page will reload if you make edits.<br>
 You will also see any lint errors in the console.
@@ -22,172 +26,609 @@ Your app is ready to be deployed!
 
 See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
 
-connectToPair
-Globally allows dex client to connect to pair including sharding optimization of deployed wallets
+### Video help
+
+This video shows the entire user interface [video](https://www.youtube.com/watch?v=ijPKimLgagU)
+
 
 ## API methods
 
-### getCurrentExtension()
+### createDID3() dex
 
-Returns object with unified current extension main methods
+Function for creating a DID, displays its identifier to the user
 
 ```
-async function broxus() {
+async function createDID3() {
+		let bal = getClientBalance(localStorage.address);
 
-    await ton.ensureInitialized();
-    const {accountInteraction} = await ton.requestPermissions({
-        permissions: ['tonClient', 'accountInteraction']
-    });
-    if (accountInteraction == null) {
-        return new Error('Insufficient permissions');
-    }
-    let curExtenson = {};
-    let providerState = await ton.getProviderState();
-    let netType = providerState.selectedConnection;
-    curExtenson.network = nets[netType]
-    curExtenson.name = "broxus";
-    curExtenson.address = accountInteraction.address._address;
-    curExtenson.pubkey = accountInteraction.publicKey;
-    curExtenson.contract = (contractAbi, contractAddress) => {
-        return new Contract(contractAbi, new AddressLiteral(contractAddress))
-    };
-    curExtenson.runMethod = async (methodName, params, contract) => {
-        return await contract.methods[methodName](params).call({cachedState: undefined})
-    };
-    curExtenson.callMethod = async (methodName, params, contract) => {
-        return await contract.methods[methodName](params).sendExternal({publicKey: accountInteraction.publicKey})
-    };
-    curExtenson.SendTransfer = async (to,amount) => {
-        return await ton.sendMessage({
-            sender: curExtenson.address,
-            recipient: new Address(to),
-            amount: amount,
-            bounce: false
-        })
-    }
-    return curExtenson
+		bal.then(
+			async (data) => {
+				if(data < 0.5){
+					alert("Insufficient balance");
+					return;
+				} else {
+
+					setLoader(true);
+
+					const acc = new Account(DEXClientContract, {
+						address: localStorage.address,
+						signer: signerKeys(await getClientKeys(sessionStorage.seed)),
+						client,
+					});
+
+					let pubkey = (await getClientKeys(seed)).public;
+
+					try {
+						const newDIDDoc = {
+							id: "did:everscale:" +pubkey.toString(),
+							//createdAt: new Date().getTime().toString(),
+							"@context": [
+								"https://www.w3.org/ns/did/v1",
+								"https://w3id.org/security/suites/ed25519-2020/v1",
+							],
+							publicKey: pubkey.toString(),
+							verificationMethod: {
+								id: "did:everscale:" +pubkey.toString(),
+								type: "Ed25519VerificationKey2020",
+								controller: "did:everscale:" +pubkey.toString(),
+								publicKeyMultibase: pubkey,
+							},
+						};
+
+						const {body} = await client.abi.encode_message_body({
+							abi: {type: "Contract", value: DidStorageContract.abi},
+							signer: {type: "None"},
+							is_internal: true,
+							call_set: {
+								function_name: "addDid",
+								input: {
+									pubKey: "0x" + pubkey,
+									didDocument: JSON.stringify(newDIDDoc),
+									addr: localStorage.address,
+								},
+							},
+						});
+
+						const res = await acc.run("sendTransaction", {
+							dest: dexrootAddr,
+							value: 500000000,
+							bounce: true,
+							flags: 3,
+							payload: body,
+						});
+
+						console.log(res);
+					} catch (e) {
+						console.log(e);
+						setLoader(false);
+					}
+
+					setTimeout(async function(){
+						const acc2 = new Account(DidStorageContract, {
+							address: dexrootAddr,
+							signer: signerNone(),
+							client,
+						});
+						const res2 = await acc2.runLocal("resolveDidDocument", {
+							id: "0x" + pubkey,
+						});
+				
+						console.log(res2);
+				
+						let addrDidDoc = res2.decoded.out_messages[0].value.addrDidDocument;
+
+						try{
+
+							const accDid = new Account(DidDocumentContract, {
+								address: addrDidDoc,
+								signer: signerNone(),
+								client,
+							})
+
+							const resInit = await accDid.run("init", {
+								issuerAddr: localStorage.address
+							}, {
+								signer: signerKeys(await getClientKeys(sessionStorage.seed))
+							})
+
+							console.log(resInit);
+
+						} catch(e) {
+							console.log(e);
+							setLoader(false);
+							alert("Error!")
+							return;
+						}
+				
+						const didAcc = new Account(DidDocumentContract, {
+							address: addrDidDoc,
+							signer: signerNone(),
+							client,
+						});
+				
+						const resDid = await didAcc.runLocal("getDid", {});
+				
+						console.log(resDid.decoded.out_messages[0].value.value0);
+
+						let tempDoc = JSON.parse(resDid.decoded.out_messages[0].value.value0.didDocument);
+
+						let tempDid = tempDoc.id;
+
+						console.log(tempDoc);
+
+						console.log(tempDid);
+
+						setLoader(false);
+						setAlertW({
+							hidden: false,
+							text: "Your DID has been created: " + tempDid,
+							title: "Congratulations"
+						})
+					},20000);
+				}
+			}
+		);
+	}
+```
+
+### resolveDID() dex
+
+A function that retrieves a DID document and displays it to the user
+
+```
+async function resolveDID() {
+		let tempDid = DID.split(':')[2];
+		console.log(DID);
+		
+
+		setLoader(true);
+
+		const acc = new Account(DEXClientContract, {
+			address: localStorage.address,
+			signer: signerKeys(await getClientKeys(sessionStorage.seed)),
+			client,
+		});
+
+		const acc2 = new Account(DidStorageContract, {
+			address: dexrootAddr,
+			signer: signerNone(),
+			client,
+		});
+
+		let res2;
+
+		try{
+			res2 = await acc2.runLocal("resolveDidDocument", {
+				id: "0x" + tempDid,
+			});
+		} catch {
+			setLoader(false);
+			alert("Incorrect format DID");
+			return;
+		}
+
+		console.log(res2);
+
+		let addrDidDoc = res2.decoded.out_messages[0].value.addrDidDocument;
+
+		try{
+			const didAcc = new Account(DidDocumentContract, {
+				address: addrDidDoc,
+				signer: signerNone(),
+				client,
+			});
+	
+			const resDid = await didAcc.runLocal("getDid", {});
+
+			setLoader(false);
+			setDidDoc(resDid.decoded.out_messages[0].value.value0);
+			console.log(resDid.decoded.out_messages[0].value.value0);
+		} catch(e) {
+			console.log(e);
+			setLoader(false);
+			alert("Error! \n Possible reasons: \n - Wrong DID \n - This DID has been deleted");
+		}
+
+		
+	}
+```
+
+### updateDIDDocument() dex
+
+Function for updating the parameters of the DID document
+
+```
+async function updateDIDDocument() {
+		let tempDid = DID.split(':')[2];
+		console.log(DID);
+
+		setLoader(true);
+
+		const acc = new Account(DEXClientContract, {
+			address: localStorage.address,
+			signer: signerKeys(await getClientKeys(sessionStorage.seed)),
+			client,
+		});
+
+		let pubkey = (await getClientKeys(seed)).public;
+
+		const acc2 = new Account(DidStorageContract, {
+			address: dexrootAddr,
+			signer: signerNone(),
+			client,
+		});
+
+		const res2 = await acc2.runLocal("resolveDidDocument", {
+			id: "0x" + tempDid,
+		});
+
+		console.log(res2);
+
+		let addrDidDoc = res2.decoded.out_messages[0].value.addrDidDocument;
+
+		const didAcc = new Account(DidDocumentContract, {
+			address: addrDidDoc,
+			signer: signerNone(),
+			client,
+		});
+
+		console.log(JSON.stringify(didDoc.didDocument));
+
+		try {
+			const {body} = await client.abi.encode_message_body({
+				abi: {type: "Contract", value: DidDocumentContract.abi},
+				signer: {type: "None"},
+				is_internal: true,
+				call_set: {
+					function_name: "newDidDocument",
+					input: {
+						didDocument: didDoc.didDocument,
+					},
+				},
+			});
+
+			const res = await acc.run("sendTransaction", {
+				dest: addrDidDoc,
+				value: 300000000,
+				bounce: true,
+				flags: 3,
+				payload: body,
+			});
+
+			console.log(res);
+		} catch (e) {
+			console.log(e);
+		}
+
+		setTimeout(async function(){
+			try{
+				const resDid = await didAcc.runLocal("getDid", {});
+
+				setDidDoc(resDid.decoded.out_messages[0].value.value0);
+				console.log(resDid.decoded.out_messages[0].value.value0);
+				setLoader(false);
+			} catch(e) {
+				console.log(e);
+				alert("Error!");
+				setLoader(false);
+				
+			}
+		},20000)
+	}
+```
+
+### updateDidStatus() dex
+
+Function to update the status of a DID document
+
+```
+async function updateDidStatus() {
+
+		if(curentStatus == undefined) {
+			alert("Set status");
+			return;
+		}
+
+		let tempDid = DID.split(':')[2];
+		console.log(DID);
+
+		let bal = getClientBalance(localStorage.address);
+
+		bal.then(
+			async (data) => {
+				if(data < 1){
+					alert("Insufficient balance");
+					return;
+				} else {
+
+					setLoader(true);
+
+					const acc = new Account(DEXClientContract, {
+						address: localStorage.address,
+						signer: signerKeys(await getClientKeys(sessionStorage.seed)),
+						client,
+					});
+
+					let pubkey = (await getClientKeys(seed)).public;
+
+					const acc2 = new Account(DidStorageContract, {
+						address: dexrootAddr,
+						signer: signerNone(),
+						client,
+					});
+
+					const res2 = await acc2.runLocal("resolveDidDocument", {
+						id: "0x" + tempDid,
+					});
+
+					console.log(res2);
+
+					let addrDidDoc = res2.decoded.out_messages[0].value.addrDidDocument;
+
+					const didAcc = new Account(DidDocumentContract, {
+						address: addrDidDoc,
+						signer: signerNone(),
+						client,
+					});
+
+					try {
+
+						const {body} = await client.abi.encode_message_body({
+							abi: {type: "Contract", value: DidDocumentContract.abi},
+							signer: {type: "None"},
+							is_internal: true,
+							call_set: {
+								function_name: "newDidStatus",
+								input: {
+									status: Number(curentStatus),
+								},
+							},
+						});
+
+						const res = await acc.run("sendTransaction", {
+							dest: addrDidDoc,
+							value: 300000000,
+							bounce: true,
+							flags: 3,
+							payload: body,
+						});
+
+						console.log(res);
+					} catch (e) {
+						console.log(e);
+					}
+
+					setTimeout(async function(){
+						const resDid = await didAcc.runLocal("getDid", {});
+
+						setDidDoc(resDid.decoded.out_messages[0].value.value0);
+						console.log(resDid.decoded.out_messages[0].value.value0);
+						setLoader(false);
+					}, 20000);
+
+				}
+			}
+		);
+	}
+```
+
+### updateDidPub() dex
+
+Function to update the controller DID document
+
+```
+async function updateDidPub() {
+
+		if(curentAddr == undefined) {
+			alert("Set Address");
+			return;
+		}
+
+		let tempDid = DID.split(':')[2];
+		console.log(DID);
+
+		console.log(curentPub, curentAddr);
+
+		let bal = getClientBalance(localStorage.address);
+
+		bal.then(
+			async (data) => {
+				if(data < 1){
+					alert("Insufficient balance");
+					return;
+				} else {
+
+					setLoader(true);
+
+					const acc = new Account(DEXClientContract, {
+						address: localStorage.address,
+						signer: signerKeys(await getClientKeys(sessionStorage.seed)),
+						client,
+					});
+
+					let pubkey = (await getClientKeys(seed)).public;
+
+					const acc2 = new Account(DidStorageContract, {
+						address: dexrootAddr,
+						signer: signerNone(),
+						client,
+					});
+
+					const res2 = await acc2.runLocal("resolveDidDocument", {
+						id: "0x" + tempDid,
+					});
+
+					console.log(res2);
+
+					let addrDidDoc = res2.decoded.out_messages[0].value.addrDidDocument;
+
+					const didAcc = new Account(DidDocumentContract, {
+						address: addrDidDoc,
+						signer: signerNone(),
+						client,
+					});
+
+					try {
+
+						const {body} = await client.abi.encode_message_body({
+							abi: {type: "Contract", value: DidDocumentContract.abi},
+							signer: {type: "None"},
+							is_internal: true,
+							call_set: {
+								function_name: "newDidIssuerAddr",
+								input: {
+									issuerAddr: curentAddr
+								},
+							},
+						});
+
+						const res = await acc.run("sendTransaction", {
+							dest: addrDidDoc,
+							value: 300000000,
+							bounce: true,
+							flags: 3,
+							payload: body,
+						});
+
+						console.log(res);
+					} catch (e) {
+						console.log(e);
+						setLoader(false);
+						return;
+					}
+
+					setTimeout(async function(){
+						try{
+							const resDid = await didAcc.runLocal("getDid", {});
+
+							setDidDoc(resDid.decoded.out_messages[0].value.value0);
+							console.log(resDid.decoded.out_messages[0].value.value0);
+							setLoader(false);
+						} catch(e) {
+							console.log(e);
+							alert("Error!");
+							setLoader(false);
+						}
+					}, 20000);
+
+				}
+			}
+		);
+	}
+```
+
+### deleteDid() dex
+
+Function to delete DID documewnt
+
+```
+async function deleteDid() {
+
+		let tempDid = DID.split(':')[2];
+		console.log(DID);
+
+		let bal = getClientBalance(localStorage.address);
+
+		bal.then(
+			async (data) => {
+				if(data < 1){
+					alert("Insufficient balance");
+					return;
+				} else {
+
+					setLoader(true);
+
+					const acc = new Account(DEXClientContract, {
+						address: localStorage.address,
+						signer: signerKeys(await getClientKeys(sessionStorage.seed)),
+						client,
+					});
+
+					let pubkey = (await getClientKeys(seed)).public;
+
+					const acc2 = new Account(DidStorageContract, {
+						address: dexrootAddr,
+						signer: signerNone(),
+						client,
+					});
+
+					const res2 = await acc2.runLocal("resolveDidDocument", {
+						id: "0x" + tempDid,
+					});
+
+					console.log(res2);
+
+					let addrDidDoc = res2.decoded.out_messages[0].value.addrDidDocument;
+
+					const didAcc = new Account(DidDocumentContract, {
+						address: addrDidDoc,
+						signer: signerNone(),
+						client,
+					});
+
+					//console.log(JSON.stringify(didDoc.didDocument));
+
+					try {
+
+						const {body} = await client.abi.encode_message_body({
+							abi: {type: "Contract", value: DidDocumentContract.abi},
+							signer: {type: "None"},
+							is_internal: true,
+							call_set: {
+								function_name: "deleteDidDocument",
+								input: {},
+							},
+						});
+
+						const res = await acc.run("sendTransaction", {
+							dest: addrDidDoc,
+							value: 300000000,
+							bounce: true,
+							flags: 3,
+							payload: body,
+						});
+
+						console.log(res);
+					} catch (e) {
+						console.log(e);
+						setLoader(false);
+						return;
+					}
+
+					setTimeout(async function(){
+						console.log(1);
+						// const resDid = await didAcc.runLocal("getDid", {});
+
+						// setDidDoc(resDid.decoded.out_messages[0].value.value0);
+						// console.log(resDid.decoded.out_messages[0].value.value0);
+
+						const res3 = await acc2.runLocal("resolveDidDocument", {
+							id: "0x" + tempDid,
+						});
+				
+						console.log(res3);
+
+						try {
+							const resDid = await didAcc.runLocal("getDid", {});
+
+							setDidDoc(resDid.decoded.out_messages[0].value.value0);
+							console.log(resDid.decoded.out_messages[0].value.value0);
+						} catch(e) {
+							backToLogin();
+							setLoader(false);
+							alert("Did doc delete");
+						}
+
+						setLoader(false);
+					}, 20000);
+
+				}
+			}
+		);
+	}
 }
 ```
 
-```
-async function extraton() {
-    const provider = getProvider();
-    const signer = await provider.getSigner();
-    const network = await provider.getNetwork();
-    let wallet = signer.getWallet()
+### Function for ever wallet
 
-    let curExtenson = {};
-    curExtenson.network = network.server;
-    curExtenson.name = "extraton";
-    curExtenson.address = signer.wallet.address;
-    curExtenson.pubkey = await signer.getPublicKey();
-    curExtenson.contract = (contractAbi, contractAddress) => {
-        return new freeton.Contract(signer, contractAbi, contractAddress)
-    };
-    curExtenson.runMethod = async (methodName, params, contract) => {
-        return await contract.methods[methodName].run(params)
-    };
-    curExtenson.callMethod = async (methodName, params, contract) => {
-        return await contract.methods[methodName].call(params)
-    };
-    curExtenson.SendTransfer = async (to,amount) => {
-        return await wallet.transfer(to, amount, false,"")
-    }
-    return curExtenson
-}
-```
-
-### setCreator()
-
-Function to deploy dex client - it is performed in several stages:
-
-- first step - check client exists on dex root as creator(need to send few tons as pay for register your pubkey on dex root)
-  - if false will offer you to send transfer
-- second step - get shard arg
-- last one - createDEXclient methos that you should sign in extension.
-
-Dex client will be deployes in few seconds.
-
-### connectToPair()
-
-Function to connect to dex pair - it is performed in several stages:
-
-- first step - connectPair, pair sets it`s data to dex client
-- second step - get shard arg for all wallets that need to deploy - depends on pair token roots
-- last step - deploy wallets that client does not have
-
-### swapA()/swapB()
-
-Allows user to use processSwapA/processSwapB call method on dex client smart contract
-
-```
-export async function swapA(curExt,pairAddr, qtyA) {
-    const {pubkey, contract, callMethod,SendTransfer} = curExt._extLib
-    let getClientAddressFromRoot = await checkPubKey(pubkey)
-    if(getClientAddressFromRoot.status === false){
-        return getClientAddressFromRoot
-    }
-    let checkClientBalance = await getClientBalance(getClientAddressFromRoot.dexclient)
-    if(500000000 > (checkClientBalance*1000000000)){
-        await transfer(SendTransfer,getClientAddressFromRoot.dexclient,3000000000)
-    }
-    try {
-        const clientContract = await contract(DEXclientContract.abi, getClientAddressFromRoot.dexclient);
-        const processSwapA = await callMethod("processSwapA", {pairAddr:pairAddr, qtyA:qtyA}, clientContract)
-        return processSwapA
-    } catch (e) {
-        return e
-    }
-}
-```
-
-### processLiquidity()
-
-Push liquidity to pair, it turns out LP tokens for some amount of qtyA & qtyB tokens
-
-```
-
-export async function processLiquidity(curExt,pairAddr, qtyA, qtyB) {
-    const {pubkey, contract, SendTransfer, callMethod} = curExt._extLib
-    let getClientAddressFromRoot = await checkPubKey(pubkey)
-    if(getClientAddressFromRoot.status === false){
-        return getClientAddressFromRoot
-    }
-    let checkClientBalance = await getClientBalance(getClientAddressFromRoot.dexclient)
-    if(500000000 > (checkClientBalance*1000000000)){
-        await transfer(SendTransfer,getClientAddressFromRoot.dexclient,3000000000)
-    }
-    try {
-        const clientContract = await contract(DEXclientContract.abi, getClientAddressFromRoot.dexclient);
-        const processLiquidity = await callMethod("processLiquidity", {pairAddr:pairAddr, qtyA:Number(qtyA).toFixed(0), qtyB:Number(qtyB).toFixed(0)}, clientContract)
-        return processLiquidity
-    } catch (e) {
-        return e
-    }
-}
-```
-
-### returnLiquidity()
-
-Return liquidity from pair, it turns out tokens of pair for LP tokens or pair
-
-```
-export async function returnLiquidity(curExt,pairAddr, tokens) {
-    const {pubkey, contract, SendTransfer, callMethod} = curExt._extLib
-    let getClientAddressFromRoot = await checkPubKey(pubkey)
-    if(getClientAddressFromRoot.status === false){
-        return getClientAddressFromRoot
-    }
-    let checkClientBalance = await getClientBalance(getClientAddressFromRoot.dexclient)
-    if(500000000 > (checkClientBalance*1000000000)){
-        await transfer(SendTransfer,getClientAddressFromRoot.dexclient,3000000000)
-    }
-    try {
-        const clientContract = await contract(DEXclientContract.abi, getClientAddressFromRoot.dexclient);
-        const returnLiquidity = await callMethod("returnLiquidity", {pairAddr:pairAddr, tokens: tokens}, clientContract)
-        return returnLiquidity
-    } catch (e) {
-        return e
-    }
-}
-```
+You can find the same functions for the ever wallet in the file WelcomeDidPageEver.js

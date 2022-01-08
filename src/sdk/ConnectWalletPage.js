@@ -8,10 +8,10 @@ import {libWeb} from "@tonclient/lib-web";
 
 import {signerKeys} from "@tonclient/core";
 
-//import {DEXClientContract} from "../extensions/contracts/testNet/DEXClientMainNetContract.js";
-// import {DEXRootContract} from "../extensions/contracts/testNet/DEXRootContract.js";
-// import {DEXConnectorContract} from "../extensions/contracts/testNet/DEXConnectorContract.js";
-// import {TONTokenWalletContract} from "../extensions/contracts/testNet/TONTokenWalletContract.js";
+// import {DEXClientContract} from "../extensions/contracts/testNet/DEXClient.js";
+// import {DEXRootContract} from "../extensions/contracts/testNet/DEXRoot.js";
+// import {DEXConnectorContract} from "../extensions/contracts/testNet/DEXConnector.js";
+// import {TONTokenWalletContract} from "../extensions/contracts/testNet/TONTokenWallet.js";
 
 import {DEXClientContract} from "../extensions/contracts/mainNet/DEXClient.js";
 import {DEXRootContract} from "../extensions/contracts/mainNet/DEXRoot.js";
@@ -67,11 +67,14 @@ function ConnectWalletPage() {
 	let pass = "";
 	let mnemonic = "";
 
+	// main net
 	// let dexrootAddr =
-	// 	"0:fa31b7395fe161aea6f193cfe1bbfd147faf004f996c624ba52c95f8fe64502f";
+	// 	"0:e6bfca78593f25de9301de4f19ed798dce2210150c9c62437f192d00fb30ad31";
+
+	// dev net
 	let dexrootAddr =
 		"0:b199c648ae3f6d2b1a774d51f35b5af98a346672c91f1da9c1f1ba3a0a3d69d0";
-	//let dexrootAddr = "0:5d0f5a8cb443e00934d1bb632acadc036a6c41b59308e3a36d809449a5e777d9";
+	
 	const zeroAddress =
 		"0:0000000000000000000000000000000000000000000000000000000000000000";
 
@@ -467,7 +470,7 @@ function ConnectWalletPage() {
 								promiseAcc.then(
 									(data) => {
 										let acc = data.acc_type;
-
+										console.log(acc);
 										if (acc === 1) {
 											setLoader(false);
 											localStorage.setItem("address", addr);
@@ -652,7 +655,7 @@ function ConnectWalletPage() {
 		bal.then(
 			(data) => {
 				//console.log(bal);
-				if (data > 1) {
+				if (data > 0.4) {
 					setLoader(false);
 					// сделать проверку на выдаваемый результат deployClient, если произойдет ошибка
 					deployClient(clientData[0], clientData[1]);
