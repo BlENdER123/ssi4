@@ -30,9 +30,12 @@ import * as ed from 'noble-ed25519';
 
 import sha256 from 'crypto-js/sha256';
 
+const config = require('./config.json');
+
 //const {TonClient} = require("@tonclient/core");
 TonClient.useBinaryLibrary(libWeb);
-const client = new TonClient({network: {endpoints: ["net.ton.dev"]}});
+// const client = new TonClient({network: {endpoints: ["net.ton.dev"]}});
+const client = new TonClient({network: {endpoints: [config.DappServer]}});
 
 const pidCrypt = require("pidcrypt");
 require("pidcrypt/aes_cbc");
@@ -41,10 +44,11 @@ require("pidcrypt/aes_cbc");
 // let dexrootAddr = "0:26e01cf61fd79264c21b1085f3d5de0481024ce54bfaf9de6507b4731bf8c94d";
 
 // dev net
-let dexrootAddr = "0:1f18747f268394007398024e6be2878e221fe931fe832df62033c538d091d0d5";
+// let dexrootAddr = "0:1f18747f268394007398024e6be2878e221fe931fe832df62033c538d091d0d5";
+let dexrootAddr = config.storageroot;
 
-let walletAddr =
-	"0:da136604399797f5d012ed406d541f4046d2aa5eca55290d500d2bcdfd9e2148";
+// let walletAddr =
+// 	"0:da136604399797f5d012ed406d541f4046d2aa5eca55290d500d2bcdfd9e2148";
 
 // const request = () =>
 // 	fetch("http://ssi.defispace.com:4001/graphql", {
