@@ -28,7 +28,7 @@ See the section about [deployment](https://facebook.github.io/create-react-app/d
 
 ### Video help
 
-This video shows the entire user interface [video](https://www.youtube.com/watch?v=ijPKimLgagU)
+This video shows the entire user interface [video](https://youtu.be/X8HuIVbSZDc)
 
 
 ## Change of network

@@ -24,6 +24,10 @@ function Header() {
 							<span className="fs-4">RADIANCETEAM</span>
 						</a>
 
+						<span>
+							DID management technical interface
+						</span>
+
 						<Switch>
 							{/* <Route exact path="/" component={StartPageHeader}></Route> */}
 							{/* <Route exact path="/connect-wallet" component={StartPageHeader}></Route> */}

@@ -1,17 +1,10 @@
 import React, {useState} from "react";
 import { Redirect } from 'react-router-dom';
 import backspace from "./img/backspace.png";
-//import crypto from 'crypto'
-//import {genSeed, genKeys} from "../sdk";
 import {Account} from "@tonclient/appkit";
 import {libWeb} from "@tonclient/lib-web";
 
 import {signerKeys} from "@tonclient/core";
-
-// import {DEXClientContract} from "../extensions/contracts/testNet/DEXClient.js";
-// import {DEXRootContract} from "../extensions/contracts/testNet/DEXRoot.js";
-// import {DEXConnectorContract} from "../extensions/contracts/testNet/DEXConnector.js";
-// import {TONTokenWalletContract} from "../extensions/contracts/testNet/TONTokenWallet.js";
 
 import {DEXClientContract} from "../extensions/contracts/mainNet/DEXClient.js";
 import {DEXRootContract} from "../extensions/contracts/mainNet/DEXRoot.js";
@@ -26,11 +19,8 @@ const {TonClient} = require("@tonclient/core");
 
 TonClient.useBinaryLibrary(libWeb);
 
-// const client = new TonClient({network: {endpoints: ["net.ton.dev"]}});
 const client = new TonClient({network: {endpoints: [config.DappServer]}});
-// const client = new TonClient({network: {endpoints: ["main.ton.dev"]}});
 
-//const bip39 = require('bip39');
 const pidCrypt = require("pidcrypt");
 require("pidcrypt/aes_cbc");
 
@@ -119,7 +109,7 @@ function ConnectWalletPage() {
 		let encrypted = aes.encryptText(mnemonic, pin);
 		console.log(encrypted);
 
-		localStorage.setItem("seedHash", encrypted);
+		sessionStorage.setItem("seedHash", encrypted);
 
 		setSeed(mnemonic);
 	}
@@ -436,7 +426,6 @@ function ConnectWalletPage() {
 		if (curentPageLogin === 1) {
 			if (seedLogin !== "") {
 				setCurentPageLogin(curentPageLogin + 1);
-				sessionStorage.setItem("seed", seedLogin);
 			} else {
 				setErrorModal([
 					{
@@ -456,9 +445,11 @@ function ConnectWalletPage() {
 				let temp = [inputL1, inputL2, inputL3, inputL4];
 				let pass = temp.join("");
 
+				let trim = seedLogin.trim();
+
 				setLoader(true);
 
-				let promiseKeys = getClientKeys(seedLogin);
+				let promiseKeys = getClientKeys(trim);
 				promiseKeys.then(
 					(data) => {
 						let addr = data.public;
@@ -478,7 +469,12 @@ function ConnectWalletPage() {
 										console.log(acc);
 										if (acc === 1) {
 											setLoader(false);
-											localStorage.setItem("address", addr);
+
+											let encrypted = aes.encryptText(trim, pass);
+
+											sessionStorage.setItem("seedHash", encrypted);
+
+											sessionStorage.setItem("address", addr);
 
 											setCurentPageLogin(curentPageLogin + 1);
 										} else {

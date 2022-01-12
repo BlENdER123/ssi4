@@ -82,6 +82,13 @@ a:hover {
 .header {
 	background-color: #fff;
 }
+.header>.container>header{
+	align-items: center;
+	justify-content: space-around;
+}
+.header>.container>header>span{
+	font-size: 19px;
+}
 .logo {
 	height: 50px;
 	margin-right: 5px;
