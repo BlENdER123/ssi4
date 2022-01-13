@@ -54,14 +54,6 @@ function ConnectWalletPage() {
 
 	const [hasTon] = useState(false);
 
-	// function goChromeStore() {
-	// 	console.log(1);
-	// 	window.open(
-	// 		"https://chrome.google.com/webstore/detail/ever-wallet/cgeeodpfagjceefieflmdfphplkenlfk",
-	// 		"_self",
-	// 	);
-	// }
-
 	let pass = "";
 	let mnemonic = "";
 
@@ -134,6 +126,7 @@ function ConnectWalletPage() {
 				clientPubKey: "0x" + pubkey,
 				clientSoArg: n,
 			});
+			console.log(1);
 			let value0 = response.decoded.output.value0;
 			console.log("value0", value0);
 			return value0;
@@ -149,7 +142,7 @@ function ConnectWalletPage() {
 		try {
 			// const rootContract = await contract(DEXRootContract.abi, Radiance.networks['2'].dexroot);
 			let targetShard = getShard(dexrootAddr);
-			// console.log("pubkeypubkey",pubkey)
+			console.log("pubkeypubkey",pubkey)
 			let status = false;
 			let n = 0;
 			let clientAddress;
