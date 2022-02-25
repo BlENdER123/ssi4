@@ -24,9 +24,7 @@ function Header() {
 							<span className="fs-4">RADIANCETEAM</span>
 						</a>
 
-						<span>
-							DID management technical interface
-						</span>
+						<span>Issuance of Verifiable Credentials (VC)</span>
 
 						<Switch>
 							{/* <Route exact path="/" component={StartPageHeader}></Route> */}

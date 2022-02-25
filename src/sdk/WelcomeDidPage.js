@@ -8,19 +8,16 @@ import {signerKeys, TonClient, signerNone} from "@tonclient/core";
 
 import {DEXClientContract} from "../extensions/contracts/testNet/DEXClientMainNet.js";
 
-
-
 import {DidStorageContract} from "./contracts/new/DidStorageContractDev.js";
 import {DidDocumentContract} from "./contracts/new/DidDocumentContractDev.js";
 
-
 import {useQuery} from "react-query";
 
-import * as ed from 'noble-ed25519';
+import * as ed from "noble-ed25519";
 
-import sha256 from 'crypto-js/sha256';
+import sha256 from "crypto-js/sha256";
 
-const config = require('./config.json');
+const config = require("./config.json");
 
 //const {TonClient} = require("@tonclient/core");
 TonClient.useBinaryLibrary(libWeb);
@@ -31,7 +28,6 @@ const pidCrypt = require("pidcrypt");
 require("pidcrypt/aes_cbc");
 
 let dexrootAddr = config.storageroot;
-
 
 // const request = () =>
 // 	fetch("http://ssi.defispace.com:4001/graphql", {
@@ -55,8 +51,6 @@ let dexrootAddr = config.storageroot;
 // 		}),
 // 	}).then((response) => response.json());
 
-
-
 function WelcomeDidPage() {
 	const [didDoc, setDidDoc] = useState();
 
@@ -68,20 +62,32 @@ function WelcomeDidPage() {
 
 	const [menuCurent, setMenuCurent] = useState(0);
 
-	const attributes = ["id","@context","controller","alsoKnownAs","verificationMethod","authentication","assertionMethod","keyAgreement","capabilityInvocation","capabilityDelegation","service"];
+	const attributes = [
+		"id",
+		"@context",
+		"controller",
+		"alsoKnownAs",
+		"verificationMethod",
+		"authentication",
+		"assertionMethod",
+		"keyAgreement",
+		"capabilityInvocation",
+		"capabilityDelegation",
+		"service",
+	];
 
 	const [curentAttr, setCurentAttr] = useState();
 
 	const [curentStatus, setCurentStatus] = useState();
 
-	const [curentPub , setCurentPub] = useState();
+	const [curentPub, setCurentPub] = useState();
 
 	const [curentAddr, setCurentAddr] = useState();
 
 	const [alertW, setAlertW] = useState({
 		hidden: true,
 		text: "",
-		title: ""
+		title: "",
 	});
 
 	const aes = new pidCrypt.AES.CBC();
@@ -100,7 +106,6 @@ function WelcomeDidPage() {
 	}
 	//setPubK((getClientKeys(seed)).public);
 
-
 	// let res = request();
 
 	// let generateResult;
@@ -116,26 +121,25 @@ function WelcomeDidPage() {
 	// });
 
 	function decryptSeed(pin) {
-
 		var decrypted = aes.decryptText(sessionStorage.seedHash, pin);
 
 		const engPattern = /[a-z]/;
 
-		if(!engPattern.test(decrypted)){
+		if (!engPattern.test(decrypted)) {
 			alert("Wrong PIN");
 			return false;
 		}
 
 		let seed_arr = decrypted.split(" ");
 
-		if(!seed_arr == 12) {
+		if (!seed_arr == 12) {
 			alert("Wrong PIN");
 			return false;
 		}
 
-		for(let i = 0; i < seed_arr.length; i++) {
-			for(let j = 0; j < seed_arr[i].length; j++) {
-				if(!engPattern.test(seed_arr[i][j])){
+		for (let i = 0; i < seed_arr.length; i++) {
+			for (let j = 0; j < seed_arr[i].length; j++) {
+				if (!engPattern.test(seed_arr[i][j])) {
 					alert("Wrong PIN");
 					return false;
 				}
@@ -143,7 +147,6 @@ function WelcomeDidPage() {
 		}
 
 		return decrypted;
-
 	}
 
 	async function getClientBalance(clientAddress) {
@@ -152,7 +155,7 @@ function WelcomeDidPage() {
 		if (
 			clientAddress ===
 			"0:0000000000000000000000000000000000000000000000000000000000000000"
-		){
+		) {
 			console.log(0);
 			return 0;
 		}
@@ -175,12 +178,11 @@ function WelcomeDidPage() {
 	}
 
 	async function createDID3() {
-
 		let pass = prompt("Enter your PIN");
 
 		let seed = decryptSeed(pass);
 
-		if(!seed){
+		if (!seed) {
 			return;
 		}
 
@@ -189,178 +191,170 @@ function WelcomeDidPage() {
 		async function create() {
 			let bal = getClientBalance(sessionStorage.address);
 
-			bal.then(
-				async (data) => {
-					if(data < 0.5){
-						alert("Insufficient balance");
-						return;
-					} else {
+			bal.then(async (data) => {
+				if (data < 0.5) {
+					alert("Insufficient balance");
+					return;
+				} else {
+					setLoader(true);
 
-						setLoader(true);
+					const acc = new Account(DEXClientContract, {
+						address: sessionStorage.address,
+						signer: signerKeys(await getClientKeys(seed)),
+						client,
+					});
 
-						const acc = new Account(DEXClientContract, {
-							address: sessionStorage.address,
-							signer: signerKeys(await getClientKeys(seed)),
-							client,
+					let pubkey = (await getClientKeys(seed)).public;
+
+					try {
+						const newDIDDoc = {
+							id: "did:everscale:" + pubkey.toString(),
+							//createdAt: new Date().getTime().toString(),
+							"@context": [
+								"https://www.w3.org/ns/did/v1",
+								"https://w3id.org/security/suites/ed25519-2020/v1",
+							],
+							publicKey: pubkey.toString(),
+							verificationMethod: {
+								id: "did:everscale:" + pubkey.toString(),
+								type: "Ed25519VerificationKey2020",
+								controller: "did:everscale:" + pubkey.toString(),
+								publicKeyMultibase: pubkey,
+							},
+						};
+
+						const {body} = await client.abi.encode_message_body({
+							abi: {type: "Contract", value: DidStorageContract.abi},
+							signer: {type: "None"},
+							is_internal: true,
+							call_set: {
+								function_name: "addDid",
+								input: {
+									pubKey: "0x" + pubkey,
+									didDocument: JSON.stringify(newDIDDoc),
+									addr: sessionStorage.address,
+								},
+							},
 						});
 
-						let pubkey = (await getClientKeys(seed)).public;
+						const res = await acc.run("sendTransaction", {
+							dest: dexrootAddr,
+							value: 500000000,
+							bounce: true,
+							flags: 3,
+							payload: body,
+						});
+
+						console.log(res);
+					} catch (e) {
+						console.log(e);
+						setLoader(false);
+					}
+
+					// try{
+					// 	const acc2 = new Account(DidStorageContract, {
+					// 		address: dexrootAddr,
+					// 		signer: signerNone(),
+					// 		client,
+					// 	});
+					// 	const res2 = await acc2.runLocal("resolveDidDocument", {
+					// 		id: "0x" + pubkey,
+					// 	});
+
+					// 	console.log(res2);
+
+					// 	let addrDidDoc = res2.decoded.out_messages[0].value.addrDidDocument;
+
+					// 	const didAcc = new Account(DidDocumentContract, {
+					// 		address: addrDidDoc,
+					// 		signer: signerNone(),
+					// 		client,
+					// 	});
+
+					// 	const resDid = await didAcc.runLocal("getDid", {});
+
+					// 	//setDidDoc(resDid.decoded.out_messages[0].value.value0);
+					// 	console.log(resDid.decoded.out_messages[0].value.value0);
+					// } catch(e) {
+					// 	console.log(e);
+					// }
+
+					setTimeout(async function () {
+						const acc2 = new Account(DidStorageContract, {
+							address: dexrootAddr,
+							signer: signerNone(),
+							client,
+						});
+						const res2 = await acc2.runLocal("resolveDidDocument", {
+							id: "0x" + pubkey,
+						});
+
+						console.log(res2);
+
+						let addrDidDoc = res2.decoded.out_messages[0].value.addrDidDocument;
 
 						try {
-							const newDIDDoc = {
-								id: "did:everscale:" +pubkey.toString(),
-								//createdAt: new Date().getTime().toString(),
-								"@context": [
-									"https://www.w3.org/ns/did/v1",
-									"https://w3id.org/security/suites/ed25519-2020/v1",
-								],
-								publicKey: pubkey.toString(),
-								verificationMethod: {
-									id: "did:everscale:" +pubkey.toString(),
-									type: "Ed25519VerificationKey2020",
-									controller: "did:everscale:" +pubkey.toString(),
-									publicKeyMultibase: pubkey,
-								},
-							};
-
-							const {body} = await client.abi.encode_message_body({
-								abi: {type: "Contract", value: DidStorageContract.abi},
-								signer: {type: "None"},
-								is_internal: true,
-								call_set: {
-									function_name: "addDid",
-									input: {
-										pubKey: "0x" + pubkey,
-										didDocument: JSON.stringify(newDIDDoc),
-										addr: sessionStorage.address,
-									},
-								},
-							});
-
-							const res = await acc.run("sendTransaction", {
-								dest: dexrootAddr,
-								value: 500000000,
-								bounce: true,
-								flags: 3,
-								payload: body,
-							});
-
-							console.log(res);
-						} catch (e) {
-							console.log(e);
-							setLoader(false);
-						}
-
-						// try{
-						// 	const acc2 = new Account(DidStorageContract, {
-						// 		address: dexrootAddr,
-						// 		signer: signerNone(),
-						// 		client,
-						// 	});
-						// 	const res2 = await acc2.runLocal("resolveDidDocument", {
-						// 		id: "0x" + pubkey,
-						// 	});
-					
-						// 	console.log(res2);
-					
-						// 	let addrDidDoc = res2.decoded.out_messages[0].value.addrDidDocument;
-					
-						// 	const didAcc = new Account(DidDocumentContract, {
-						// 		address: addrDidDoc,
-						// 		signer: signerNone(),
-						// 		client,
-						// 	});
-					
-						// 	const resDid = await didAcc.runLocal("getDid", {});
-					
-						// 	//setDidDoc(resDid.decoded.out_messages[0].value.value0);
-						// 	console.log(resDid.decoded.out_messages[0].value.value0);
-						// } catch(e) {
-						// 	console.log(e);
-						// }
-
-
-
-						setTimeout(async function(){
-							const acc2 = new Account(DidStorageContract, {
-								address: dexrootAddr,
-								signer: signerNone(),
-								client,
-							});
-							const res2 = await acc2.runLocal("resolveDidDocument", {
-								id: "0x" + pubkey,
-							});
-
-
-					
-							console.log(res2);
-					
-							let addrDidDoc = res2.decoded.out_messages[0].value.addrDidDocument;
-
-							try{
-
-								const accDid = new Account(DidDocumentContract, {
-									address: addrDidDoc,
-									signer: signerNone(),
-									client,
-								})
-
-								const resInit = await accDid.run("init", {
-									issuerAddr: sessionStorage.address
-								}, {
-									signer: signerKeys(await getClientKeys(seed))
-								})
-
-								console.log(resInit);
-
-							} catch(e) {
-								console.log(e);
-								setLoader(false);
-								alert("Error Init!")
-								return;
-							}
-					
-							const didAcc = new Account(DidDocumentContract, {
+							const accDid = new Account(DidDocumentContract, {
 								address: addrDidDoc,
 								signer: signerNone(),
 								client,
 							});
-					
-							const resDid = await didAcc.runLocal("getDid", {});
-					
-							//setDidDoc(resDid.decoded.out_messages[0].value.value0);
-							console.log(resDid.decoded.out_messages[0].value.value0);
 
-							let tempDoc = JSON.parse(resDid.decoded.out_messages[0].value.value0.didDocument);
+							const resInit = await accDid.run(
+								"init",
+								{
+									issuerAddr: sessionStorage.address,
+								},
+								{
+									signer: signerKeys(await getClientKeys(seed)),
+								},
+							);
 
-							let tempDid = tempDoc.id;
-
-							console.log(tempDoc);
-
-							console.log(tempDid);
-
+							console.log(resInit);
+						} catch (e) {
+							console.log(e);
 							setLoader(false);
-							setAlertW({
-								hidden: false,
-								text: "Your DID has been created: " + tempDid,
-								title: "Congratulations"
-							})
-						},20000);
+							alert("Error Init!");
+							return;
+						}
 
-					}
+						const didAcc = new Account(DidDocumentContract, {
+							address: addrDidDoc,
+							signer: signerNone(),
+							client,
+						});
+
+						const resDid = await didAcc.runLocal("getDid", {});
+
+						//setDidDoc(resDid.decoded.out_messages[0].value.value0);
+						console.log(resDid.decoded.out_messages[0].value.value0);
+
+						let tempDoc = JSON.parse(
+							resDid.decoded.out_messages[0].value.value0.didDocument,
+						);
+
+						let tempDid = tempDoc.id;
+
+						console.log(tempDoc);
+
+						console.log(tempDid);
+
+						setLoader(false);
+						setAlertW({
+							hidden: false,
+							text: "Your DID has been created: " + tempDid,
+							title: "Congratulations",
+						});
+					}, 20000);
 				}
-			);
+			});
 		}
-
-		
-		
 	}
 
 	async function resolveDID() {
-
-		let tempDid = DID.split(':')[2];
+		let tempDid = DID.split(":")[2];
 		console.log(DID);
-		
+
 		setLoader(true);
 
 		const acc2 = new Account(DidStorageContract, {
@@ -371,7 +365,7 @@ function WelcomeDidPage() {
 
 		let res2;
 
-		try{
+		try {
 			res2 = await acc2.runLocal("resolveDidDocument", {
 				id: "0x" + tempDid,
 			});
@@ -385,34 +379,33 @@ function WelcomeDidPage() {
 
 		let addrDidDoc = res2.decoded.out_messages[0].value.addrDidDocument;
 
-		try{
+		try {
 			const didAcc = new Account(DidDocumentContract, {
 				address: addrDidDoc,
 				signer: signerNone(),
 				client,
 			});
-	
+
 			const resDid = await didAcc.runLocal("getDid", {});
 
 			setLoader(false);
 			setDidDoc(resDid.decoded.out_messages[0].value.value0);
 			console.log(resDid.decoded.out_messages[0].value.value0);
-		} catch(e) {
+		} catch (e) {
 			console.log(e);
 			setLoader(false);
-			alert("Error! \n Possible reasons: \n - Wrong DID \n - This DID has been deleted");
+			alert(
+				"Error! \n Possible reasons: \n - Wrong DID \n - This DID has been deleted",
+			);
 		}
-
-		
 	}
 
 	async function updateDIDDocument() {
-		
 		let pass = prompt("Enter your PIN");
 
 		let seed = decryptSeed(pass);
 
-		if(!seed) {
+		if (!seed) {
 			return;
 		}
 
@@ -421,11 +414,10 @@ function WelcomeDidPage() {
 		temp();
 
 		async function temp() {
-			let tempDid = DID.split(':')[2];
+			let tempDid = DID.split(":")[2];
 			console.log(DID);
 
 			setLoader(true);
-
 
 			let keys = await getClientKeys(seed);
 
@@ -485,37 +477,35 @@ function WelcomeDidPage() {
 				console.log(e);
 			}
 
-			setTimeout(async function(){
-				try{
+			setTimeout(async function () {
+				try {
 					const resDid = await didAcc.runLocal("getDid", {});
 
 					setDidDoc(resDid.decoded.out_messages[0].value.value0);
 					console.log(resDid.decoded.out_messages[0].value.value0);
 					setLoader(false);
-				} catch(e) {
+				} catch (e) {
 					console.log(e);
 					alert("Error!");
 					setLoader(false);
-					
 				}
-			},20000)
+			}, 20000);
 		}
-
 	}
 
 	function addAttribute() {
 		console.log(curentAttr);
-		Object.keys(JSON.parse(didDoc.didDocument)).map((item)=>{
-			if(item==curentAttr){
+		Object.keys(JSON.parse(didDoc.didDocument)).map((item) => {
+			if (item == curentAttr) {
 				alert("This attribute already exist!");
 				return;
 			}
 		});
-		let tempDidDoc ={};
+		let tempDidDoc = {};
 		console.log(didDoc);
-		for(let key in didDoc) {
+		for (let key in didDoc) {
 			let temp = didDoc[key];
-			if(key == "didDocument"){
+			if (key == "didDocument") {
 				let tempDoc = JSON.parse(temp);
 				tempDoc[curentAttr] = "null";
 				tempDidDoc[key] = JSON.stringify(tempDoc);
@@ -531,11 +521,11 @@ function WelcomeDidPage() {
 	function deleteAttribute(item) {
 		console.log(item);
 
-		let tempDidDoc ={};
+		let tempDidDoc = {};
 		console.log(didDoc);
-		for(let key in didDoc) {
+		for (let key in didDoc) {
 			let temp = didDoc[key];
-			if(key == "didDocument"){
+			if (key == "didDocument") {
 				let tempDoc = JSON.parse(temp);
 				delete tempDoc[item];
 				tempDidDoc[key] = JSON.stringify(tempDoc);
@@ -546,16 +536,14 @@ function WelcomeDidPage() {
 		}
 		console.log(tempDidDoc);
 		setDidDoc(tempDidDoc);
-
 	}
 
-	function saveAttribute(item,value) {
-
-		let tempDidDoc ={};
+	function saveAttribute(item, value) {
+		let tempDidDoc = {};
 		console.log(didDoc);
-		for(let key in didDoc) {
+		for (let key in didDoc) {
 			let temp = didDoc[key];
-			if(key == "didDocument"){
+			if (key == "didDocument") {
 				let tempDoc = JSON.parse(temp);
 				tempDoc[item] = value;
 				tempDidDoc[key] = JSON.stringify(tempDoc);
@@ -566,352 +554,327 @@ function WelcomeDidPage() {
 		}
 		console.log(tempDidDoc);
 		setDidDoc(tempDidDoc);
-
 	}
 
 	async function updateDidStatus() {
-
 		let pass = prompt("Enter your PIN");
 
 		let seed = decryptSeed(pass);
 
-		if(!seed) {
+		if (!seed) {
 			return;
 		}
 
 		temp();
 
 		async function temp() {
-	
-			if(curentStatus == undefined) {
+			if (curentStatus == undefined) {
 				alert("Set status");
 				return;
 			}
-	
-			let tempDid = DID.split(':')[2];
-			console.log(DID);
-	
-			let bal = getClientBalance(sessionStorage.address);
-	
-			bal.then(
-				async (data) => {
-					if(data < 1){
-						alert("Insufficient balance");
-						return;
-					} else {
-	
-						setLoader(true);
-	
-						const acc = new Account(DEXClientContract, {
-							address: sessionStorage.address,
-							signer: signerKeys(await getClientKeys(seed)),
-							client,
-						});
-	
-						let pubkey = (await getClientKeys(seed)).public;
-	
-						const acc2 = new Account(DidStorageContract, {
-							address: dexrootAddr,
-							signer: signerNone(),
-							client,
-						});
-	
-						const res2 = await acc2.runLocal("resolveDidDocument", {
-							id: "0x" + tempDid,
-						});
-	
-						console.log(res2);
-	
-						let addrDidDoc = res2.decoded.out_messages[0].value.addrDidDocument;
-	
-						const didAcc = new Account(DidDocumentContract, {
-							address: addrDidDoc,
-							signer: signerNone(),
-							client,
-						});
-	
-						//console.log(JSON.stringify(didDoc.didDocument));
-	
-						try {
-	
-							const {body} = await client.abi.encode_message_body({
-								abi: {type: "Contract", value: DidDocumentContract.abi},
-								signer: {type: "None"},
-								is_internal: true,
-								call_set: {
-									function_name: "newDidStatus",
-									input: {
-										status: Number(curentStatus),
-									},
-								},
-							});
-	
-							const res = await acc.run("sendTransaction", {
-								dest: addrDidDoc,
-								value: 300000000,
-								bounce: true,
-								flags: 3,
-								payload: body,
-							});
-	
-							console.log(res);
-						} catch (e) {
-							console.log(e);
-						}
-	
-						setTimeout(async function(){
-							const resDid = await didAcc.runLocal("getDid", {});
-	
-							setDidDoc(resDid.decoded.out_messages[0].value.value0);
-							console.log(resDid.decoded.out_messages[0].value.value0);
-							setLoader(false);
-						}, 20000);
-	
-					}
-				}
-			);
-		}
 
+			let tempDid = DID.split(":")[2];
+			console.log(DID);
+
+			let bal = getClientBalance(sessionStorage.address);
+
+			bal.then(async (data) => {
+				if (data < 1) {
+					alert("Insufficient balance");
+					return;
+				} else {
+					setLoader(true);
+
+					const acc = new Account(DEXClientContract, {
+						address: sessionStorage.address,
+						signer: signerKeys(await getClientKeys(seed)),
+						client,
+					});
+
+					let pubkey = (await getClientKeys(seed)).public;
+
+					const acc2 = new Account(DidStorageContract, {
+						address: dexrootAddr,
+						signer: signerNone(),
+						client,
+					});
+
+					const res2 = await acc2.runLocal("resolveDidDocument", {
+						id: "0x" + tempDid,
+					});
+
+					console.log(res2);
+
+					let addrDidDoc = res2.decoded.out_messages[0].value.addrDidDocument;
+
+					const didAcc = new Account(DidDocumentContract, {
+						address: addrDidDoc,
+						signer: signerNone(),
+						client,
+					});
+
+					//console.log(JSON.stringify(didDoc.didDocument));
+
+					try {
+						const {body} = await client.abi.encode_message_body({
+							abi: {type: "Contract", value: DidDocumentContract.abi},
+							signer: {type: "None"},
+							is_internal: true,
+							call_set: {
+								function_name: "newDidStatus",
+								input: {
+									status: Number(curentStatus),
+								},
+							},
+						});
+
+						const res = await acc.run("sendTransaction", {
+							dest: addrDidDoc,
+							value: 300000000,
+							bounce: true,
+							flags: 3,
+							payload: body,
+						});
+
+						console.log(res);
+					} catch (e) {
+						console.log(e);
+					}
+
+					setTimeout(async function () {
+						const resDid = await didAcc.runLocal("getDid", {});
+
+						setDidDoc(resDid.decoded.out_messages[0].value.value0);
+						console.log(resDid.decoded.out_messages[0].value.value0);
+						setLoader(false);
+					}, 20000);
+				}
+			});
+		}
 	}
 
 	async function updateDidPub() {
-
 		let pass = prompt("Enter your PIN");
 
 		let seed = decryptSeed(pass);
 
-		if(!seed) {
+		if (!seed) {
 			return;
 		}
 
 		temp();
 
 		async function temp() {
-			if(curentAddr == undefined) {
+			if (curentAddr == undefined) {
 				alert("Set Address");
 				return;
 			}
-	
-			let tempDid = DID.split(':')[2];
+
+			let tempDid = DID.split(":")[2];
 			console.log(DID);
-	
+
 			let bal = getClientBalance(sessionStorage.address);
-	
-			bal.then(
-				async (data) => {
-					if(data < 1){
-						alert("Insufficient balance");
-						return;
-					} else {
-	
-						setLoader(true);
-	
-						const acc = new Account(DEXClientContract, {
-							address: sessionStorage.address,
-							signer: signerKeys(await getClientKeys(seed)),
-							client,
-						});
-	
-						let pubkey = (await getClientKeys(seed)).public;
-	
-						const acc2 = new Account(DidStorageContract, {
-							address: dexrootAddr,
-							signer: signerNone(),
-							client,
-						});
-	
-						const res2 = await acc2.runLocal("resolveDidDocument", {
-							id: "0x" + tempDid,
-						});
-	
-						console.log(res2);
-	
-						let addrDidDoc = res2.decoded.out_messages[0].value.addrDidDocument;
-	
-						const didAcc = new Account(DidDocumentContract, {
-							address: addrDidDoc,
-							signer: signerNone(),
-							client,
-						});
-	
-						//console.log(JSON.stringify(didDoc.didDocument));
-	
-						try {
-	
-							const {body} = await client.abi.encode_message_body({
-								abi: {type: "Contract", value: DidDocumentContract.abi},
-								signer: {type: "None"},
-								is_internal: true,
-								call_set: {
-									function_name: "newDidIssuerAddr",
-									input: {
-										issuerAddr: curentAddr
-									},
+
+			bal.then(async (data) => {
+				if (data < 1) {
+					alert("Insufficient balance");
+					return;
+				} else {
+					setLoader(true);
+
+					const acc = new Account(DEXClientContract, {
+						address: sessionStorage.address,
+						signer: signerKeys(await getClientKeys(seed)),
+						client,
+					});
+
+					let pubkey = (await getClientKeys(seed)).public;
+
+					const acc2 = new Account(DidStorageContract, {
+						address: dexrootAddr,
+						signer: signerNone(),
+						client,
+					});
+
+					const res2 = await acc2.runLocal("resolveDidDocument", {
+						id: "0x" + tempDid,
+					});
+
+					console.log(res2);
+
+					let addrDidDoc = res2.decoded.out_messages[0].value.addrDidDocument;
+
+					const didAcc = new Account(DidDocumentContract, {
+						address: addrDidDoc,
+						signer: signerNone(),
+						client,
+					});
+
+					//console.log(JSON.stringify(didDoc.didDocument));
+
+					try {
+						const {body} = await client.abi.encode_message_body({
+							abi: {type: "Contract", value: DidDocumentContract.abi},
+							signer: {type: "None"},
+							is_internal: true,
+							call_set: {
+								function_name: "newDidIssuerAddr",
+								input: {
+									issuerAddr: curentAddr,
 								},
-							});
-	
-							const res = await acc.run("sendTransaction", {
-								dest: addrDidDoc,
-								value: 300000000,
-								bounce: true,
-								flags: 3,
-								payload: body,
-							});
-	
-							console.log(res);
+							},
+						});
+
+						const res = await acc.run("sendTransaction", {
+							dest: addrDidDoc,
+							value: 300000000,
+							bounce: true,
+							flags: 3,
+							payload: body,
+						});
+
+						console.log(res);
+					} catch (e) {
+						console.log(e);
+						setLoader(false);
+						return;
+					}
+
+					setTimeout(async function () {
+						try {
+							const resDid = await didAcc.runLocal("getDid", {});
+
+							setDidDoc(resDid.decoded.out_messages[0].value.value0);
+							console.log(resDid.decoded.out_messages[0].value.value0);
+							setLoader(false);
 						} catch (e) {
 							console.log(e);
+							alert("Error!");
 							setLoader(false);
-							return;
 						}
-	
-						setTimeout(async function(){
-							try{
-								const resDid = await didAcc.runLocal("getDid", {});
-	
-								setDidDoc(resDid.decoded.out_messages[0].value.value0);
-								console.log(resDid.decoded.out_messages[0].value.value0);
-								setLoader(false);
-							} catch(e) {
-								console.log(e);
-								alert("Error!");
-								setLoader(false);
-							}
-						}, 20000);
-	
-					}
+					}, 20000);
 				}
-			);
+			});
 		}
 	}
 
 	async function deleteDid() {
-
 		let pass = prompt("Enter your PIN");
 
 		let seed = decryptSeed(pass);
 
-		if(!seed) {
+		if (!seed) {
 			return;
 		}
 
 		temp();
 
 		async function temp() {
-			let tempDid = DID.split(':')[2];
+			let tempDid = DID.split(":")[2];
 			console.log(DID);
 
 			let bal = getClientBalance(sessionStorage.address);
 
-			bal.then(
-				async (data) => {
-					if(data < 1){
-						alert("Insufficient balance");
+			bal.then(async (data) => {
+				if (data < 1) {
+					alert("Insufficient balance");
+					return;
+				} else {
+					setLoader(true);
+
+					const acc = new Account(DEXClientContract, {
+						address: sessionStorage.address,
+						signer: signerKeys(await getClientKeys(seed)),
+						client,
+					});
+
+					let pubkey = (await getClientKeys(seed)).public;
+
+					const acc2 = new Account(DidStorageContract, {
+						address: dexrootAddr,
+						signer: signerNone(),
+						client,
+					});
+
+					const res2 = await acc2.runLocal("resolveDidDocument", {
+						id: "0x" + tempDid,
+					});
+
+					console.log(res2);
+
+					let addrDidDoc = res2.decoded.out_messages[0].value.addrDidDocument;
+
+					const didAcc = new Account(DidDocumentContract, {
+						address: addrDidDoc,
+						signer: signerNone(),
+						client,
+					});
+
+					//console.log(JSON.stringify(didDoc.didDocument));
+
+					try {
+						const {body} = await client.abi.encode_message_body({
+							abi: {type: "Contract", value: DidDocumentContract.abi},
+							signer: {type: "None"},
+							is_internal: true,
+							call_set: {
+								function_name: "deleteDidDocument",
+								input: {},
+							},
+						});
+
+						const res = await acc.run("sendTransaction", {
+							dest: addrDidDoc,
+							value: 300000000,
+							bounce: true,
+							flags: 3,
+							payload: body,
+						});
+
+						console.log(res);
+					} catch (e) {
+						console.log(e);
+						setLoader(false);
 						return;
-					} else {
+					}
 
-						setLoader(true);
+					setTimeout(async function () {
+						console.log(1);
+						// const resDid = await didAcc.runLocal("getDid", {});
 
-						const acc = new Account(DEXClientContract, {
-							address: sessionStorage.address,
-							signer: signerKeys(await getClientKeys(seed)),
-							client,
-						});
+						// setDidDoc(resDid.decoded.out_messages[0].value.value0);
+						// console.log(resDid.decoded.out_messages[0].value.value0);
 
-						let pubkey = (await getClientKeys(seed)).public;
-
-						const acc2 = new Account(DidStorageContract, {
-							address: dexrootAddr,
-							signer: signerNone(),
-							client,
-						});
-
-						const res2 = await acc2.runLocal("resolveDidDocument", {
+						const res3 = await acc2.runLocal("resolveDidDocument", {
 							id: "0x" + tempDid,
 						});
 
-						console.log(res2);
-
-						let addrDidDoc = res2.decoded.out_messages[0].value.addrDidDocument;
-
-						const didAcc = new Account(DidDocumentContract, {
-							address: addrDidDoc,
-							signer: signerNone(),
-							client,
-						});
-
-						//console.log(JSON.stringify(didDoc.didDocument));
+						console.log(res3);
 
 						try {
+							const resDid = await didAcc.runLocal("getDid", {});
 
-							const {body} = await client.abi.encode_message_body({
-								abi: {type: "Contract", value: DidDocumentContract.abi},
-								signer: {type: "None"},
-								is_internal: true,
-								call_set: {
-									function_name: "deleteDidDocument",
-									input: {},
-								},
-							});
-
-							const res = await acc.run("sendTransaction", {
-								dest: addrDidDoc,
-								value: 300000000,
-								bounce: true,
-								flags: 3,
-								payload: body,
-							});
-
-							console.log(res);
+							setDidDoc(resDid.decoded.out_messages[0].value.value0);
+							console.log(resDid.decoded.out_messages[0].value.value0);
 						} catch (e) {
-							console.log(e);
+							backToLogin();
 							setLoader(false);
-							return;
+							alert("Did doc delete");
 						}
 
-						setTimeout(async function(){
-							console.log(1);
-							// const resDid = await didAcc.runLocal("getDid", {});
-
-							// setDidDoc(resDid.decoded.out_messages[0].value.value0);
-							// console.log(resDid.decoded.out_messages[0].value.value0);
-
-							const res3 = await acc2.runLocal("resolveDidDocument", {
-								id: "0x" + tempDid,
-							});
-					
-							console.log(res3);
-
-							try {
-								const resDid = await didAcc.runLocal("getDid", {});
-
-								setDidDoc(resDid.decoded.out_messages[0].value.value0);
-								console.log(resDid.decoded.out_messages[0].value.value0);
-							} catch(e) {
-								backToLogin();
-								setLoader(false);
-								alert("Did doc delete");
-							}
-
-							setLoader(false);
-						}, 20000);
-
-					}
+						setLoader(false);
+					}, 20000);
 				}
-			);
+			});
 		}
-
 	}
 
 	function backToLogin() {
-
 		setDidDoc("");
 		setDID("");
-
 	}
 
 	function testreq() {
-
 		// let data = '{"user":{"did": "did:everscale:f28b5fb95c2bfdc70b939de1ce2d79e1b8d233223596490827a91bc600fd876d"}}';
 
 		// var xhr = new XMLHttpRequest();
@@ -920,11 +883,11 @@ function WelcomeDidPage() {
 
 		// xhr.send(data);
 
-		// xhr.onreadystatechange = function() 
+		// xhr.onreadystatechange = function()
 		// {
 		// if (xhr.readyState == 4)
 		// {
-		// 	if(xhr.status == 200) 
+		// 	if(xhr.status == 200)
 		// 	{
 		// 		console.log(xhr.responseText);
 		// 	}
@@ -944,106 +907,103 @@ function WelcomeDidPage() {
 			fetch("https://ssi.defispace.com/auth/login", {
 				method: "post",
 				headers: {
-					'Content-Type': 'application/json; charset=utf-8',
-					'Connection' : 'keep-alive'
+					"Content-Type": "application/json; charset=utf-8",
+					Connection: "keep-alive",
 				},
-	
+
 				body: `{
 					"user":
 					{
 						"signatureHex":"${data}",
 						"did": "f28b5fb95c2bfdc70b939de1ce2d79e1b8d233223596490827a91bc600fd876d"
 				}
-				}`
-				}).then((data)=>{
+				}`,
+			})
+				.then((data) => {
 					return data.json();
-
-				}).then((data)=>{
-					testSign(data.token);
 				})
+				.then((data) => {
+					testSign(data.token);
+				});
 		}
 
 		function testSign(data) {
 			fetch("https://ssi.defispace.com/auth/user", {
 				method: "get",
 				headers: {
-					'Content-Type': 'application/json; charset=utf-8',
-					'Connection' : 'keep-alive',
-					'Authorization': `Token ${data}`
+					"Content-Type": "application/json; charset=utf-8",
+					Connection: "keep-alive",
+					Authorization: `Token ${data}`,
 				},
-	
-				
-				}).then((data)=>{
+			})
+				.then((data) => {
 					return data.json();
-
-				}).then((data)=>{
-					console.log(data);
 				})
+				.then((data) => {
+					console.log(data);
+				});
 		}
 
 		fetch("https://ssi.defispace.com/auth", {
 			method: "post",
 			headers: {
-				'Content-Type': 'application/json; charset=utf-8',
-				'Connection' : 'keep-alive'
+				"Content-Type": "application/json; charset=utf-8",
+				Connection: "keep-alive",
 			},
 
-			body: '{"user":{"did": "f28b5fb95c2bfdc70b939de1ce2d79e1b8d233223596490827a91bc600fd876d"}}'
-			})
-			.then( (response) => { 
+			body: '{"user":{"did": "f28b5fb95c2bfdc70b939de1ce2d79e1b8d233223596490827a91bc600fd876d"}}',
+		})
+			.then((response) => {
 				return response.json();
-				}).then(async function(data) {
-					// data is the parsed version of the JSON returned from the above endpoint.
-					let msg = data.value;
-					const msgHash = sha256(msg).toString();
-					console.log(msgHash);
+			})
+			.then(async function (data) {
+				// data is the parsed version of the JSON returned from the above endpoint.
+				let msg = data.value;
+				const msgHash = sha256(msg).toString();
+				console.log(msgHash);
 
-					let privatemsg = (await getClientKeys(seed)).secret;
+				let privatemsg = (await getClientKeys(seed)).secret;
 
-					console.log(privatemsg);
+				console.log(privatemsg);
 
-					return await ed.sign(msgHash, privatemsg);
-					
-				}).then((data)=>{
-					sendSign(data);
-				});
-
+				return await ed.sign(msgHash, privatemsg);
+			})
+			.then((data) => {
+				sendSign(data);
+			});
 	}
 
 	// async function signMessage(input) {
 
-    //     const msg = input.message
-    //     const msgHash = crypto.createHash('sha256').update(msg).digest('hex');
-    //     console.log(msgHash)
+	//     const msg = input.message
+	//     const msgHash = crypto.createHash('sha256').update(msg).digest('hex');
+	//     console.log(msgHash)
 
-		
-
-    //     return await ed.sign(msgHash, input.privateKey);
-    // }
-
+	//     return await ed.sign(msgHash, input.privateKey);
+	// }
 
 	return (
 		<Router>
-
-			<div className={alertW.hidden?"hide":"modal-w modal-welcome"}>
-
-				<button className="close" onClick={()=>setAlertW({hidden: true, text:"", title:""})}>
+			<div className={alertW.hidden ? "hide" : "modal-w modal-welcome"}>
+				<button
+					className="close"
+					onClick={() => setAlertW({hidden: true, text: "", title: ""})}
+				>
 					<span></span>
 					<span></span>
 				</button>
 
 				<div class="text">{alertW.title}</div>
 
-				<span class="content">
-					{alertW.text}
-				</span>
-
+				<span class="content">{alertW.text}</span>
 			</div>
 
 			{didDoc ? (
-				<div className={alertW.hidden?"modal-w modal-welcome modal-did-document":"hide"}>
-
-					
+				<div
+					className={
+						alertW.hidden ? "modal-w modal-welcome modal-did-document" : "hide"
+					}
+				>
 					<div className={loader ? "lds-dual-ring" : "hide"}></div>
 					<div className="text">DID Document</div>
 
@@ -1071,62 +1031,110 @@ function WelcomeDidPage() {
 					</div>
 
 					<div className="menu-document">
-						<span className={menuCurent==0?"active":""} onClick={()=>setMenuCurent(0)}>Change document</span>
-						<span className={menuCurent==1?"active":""} onClick={()=>setMenuCurent(1)}>Change status</span>
-						<span className={menuCurent==2?"active":""} onClick={()=>setMenuCurent(2)}>Change controller</span>
-						<span className={menuCurent==3?"active":""} onClick={()=>setMenuCurent(3)}>Delete document</span>
-						
+						<span
+							className={menuCurent == 0 ? "active" : ""}
+							onClick={() => setMenuCurent(0)}
+						>
+							Change document
+						</span>
+						<span
+							className={menuCurent == 1 ? "active" : ""}
+							onClick={() => setMenuCurent(1)}
+						>
+							Change status
+						</span>
+						<span
+							className={menuCurent == 2 ? "active" : ""}
+							onClick={() => setMenuCurent(2)}
+						>
+							Change controller
+						</span>
+						<span
+							className={menuCurent == 3 ? "active" : ""}
+							onClick={() => setMenuCurent(3)}
+						>
+							Delete document
+						</span>
 					</div>
 					<div class="content-document">
-						<div className={menuCurent==0?"menu-item new-did":"hide"}>
+						<div className={menuCurent == 0 ? "menu-item new-did" : "hide"}>
 							<div className="curent-attr">
 								{Object.keys(JSON.parse(didDoc.didDocument)).map((item, i) => {
 									let temp;
 									return (
 										<div>
 											<span>{item}:</span>{" "}
-											<input type="text" onChange={(ev)=>{temp=ev.target.value}} placeholder={JSON.stringify(JSON.parse(didDoc.didDocument)[item])}/>
-											<button onClick={()=>deleteAttribute(item)}>Delete</button>
-											<button onClick={()=>{saveAttribute(item,temp)}}>Save</button>
+											<input
+												type="text"
+												onChange={(ev) => {
+													temp = ev.target.value;
+												}}
+												placeholder={JSON.stringify(
+													JSON.parse(didDoc.didDocument)[item],
+												)}
+											/>
+											<button onClick={() => deleteAttribute(item)}>
+												Delete
+											</button>
+											<button
+												onClick={() => {
+													saveAttribute(item, temp);
+												}}
+											>
+												Save
+											</button>
 										</div>
 									);
 								})}
 							</div>
 							<div class="new-attr">
-								<select name="" id="" onChange={(ev)=>{setCurentAttr(ev.target.value)}}>
-									{attributes.map((item,i)=>{
-										return(
-										<option>{item}</option>
-										);
+								<select
+									name=""
+									id=""
+									onChange={(ev) => {
+										setCurentAttr(ev.target.value);
+									}}
+								>
+									{attributes.map((item, i) => {
+										return <option>{item}</option>;
 									})}
 								</select>
 								<button onClick={addAttribute}>Add attribute</button>
 							</div>
 							<button onClick={updateDIDDocument}>Save Changes</button>
 						</div>
-						<div className={menuCurent==1?"menu-item":"hide"}>
+						<div className={menuCurent == 1 ? "menu-item" : "hide"}>
 							<div>
-								<select name="" id="" onChange={(ev)=>{setCurentStatus(ev.target.value)}}>
+								<select
+									name=""
+									id=""
+									onChange={(ev) => {
+										setCurentStatus(ev.target.value);
+									}}
+								>
 									<option>1</option>
 									<option>0</option>
 								</select>
 							</div>
 							<button onClick={updateDidStatus}>Save Changes</button>
 						</div>
-						<div className={menuCurent==2?"menu-item":"hide"}>
+						<div className={menuCurent == 2 ? "menu-item" : "hide"}>
 							<div>
 								{/* <input type="text" placeholder="New PubKey" onChange={(ev)=>{setCurentPub(ev.target.value)}}/> */}
-								<input type="text" placeholder="New Address" onChange={(ev)=>{setCurentAddr(ev.target.value)}}/>
+								<input
+									type="text"
+									placeholder="New Address"
+									onChange={(ev) => {
+										setCurentAddr(ev.target.value);
+									}}
+								/>
 							</div>
 							<button onClick={updateDidPub}>Save Changes</button>
 						</div>
-						<div className={menuCurent==3?"menu-item":"hide"}>
+						<div className={menuCurent == 3 ? "menu-item" : "hide"}>
 							<button onClick={deleteDid}>Delete Document</button>
 						</div>
-						
 					</div>
-
-
 
 					<div className="note">
 						Note: Transactions can take 5 to 15 seconds
@@ -1134,25 +1142,19 @@ function WelcomeDidPage() {
 					<button onClick={backToLogin}>Back</button>
 				</div>
 			) : (
-				<div className={alertW.hidden?"modal-w modal-welcome":"hide"}>
+				<div className={alertW.hidden ? "modal-w modal-welcome" : "hide"}>
 					<div className={loader ? "lds-dual-ring" : "hide"}></div>
 					<div className="text">Welcome!</div>
 
-					{/* <button type="button" className="btn btn-secondary" onClick={DidCreate}>
-					I want to create DID
-				</button>
-				<button type="button" className="btn btn-secondary" onClick={createDID}>
-					I want to create DID2
-				</button> */}
-					<button
+					{/* <button
 						type="button"
 						className="btn btn-secondary"
 						onClick={createDID3}
 					>
 						I want to create DID
-					</button>
+					</button> */}
 
-					<div class="text">I already have a DID</div>
+					{/* <div class="text">I already have a DID</div> */}
 					<input
 						type="text"
 						placeholder="DID"
@@ -1165,7 +1167,7 @@ function WelcomeDidPage() {
 						className="btn btn-secondary"
 						onClick={resolveDID}
 					>
-						Log in with DID
+						Create VC
 					</button>
 
 					{/* <button onClick={testreq}>test</button> */}
