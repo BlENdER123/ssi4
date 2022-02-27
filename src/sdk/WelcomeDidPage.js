@@ -1005,139 +1005,64 @@ function WelcomeDidPage() {
 					}
 				>
 					<div className={loader ? "lds-dual-ring" : "hide"}></div>
-					<div className="text">DID Document</div>
+					<div className="text">Verifiable Credential</div>
 
-					<div className="attribute">
-						<span>status:</span>
-						{didDoc.status}
-					</div>
-					<div className="attribute">
-						<span>PubKey:</span>
-						{didDoc.PubKey}
-					</div>
-					<div className="attribute">
-						<span>issuerAddres:</span>
-						{didDoc.issuerAddr}
-					</div>
-					<div className="attribute">
-						{Object.keys(JSON.parse(didDoc.didDocument)).map((item, i) => {
-							return (
-								<div>
-									<span>{item}:</span>{" "}
-									{JSON.stringify(JSON.parse(didDoc.didDocument)[item])}
-								</div>
-							);
-						})}
-					</div>
+					<div className="content">
+						<div className="vc">
+							{`
+							{
+  
+							"@context": [
+								"https://www.w3.org/2018/credentials/v1",
+								"https://www.w3.org/2018/credentials/examples/v1"
+							],
+							
+							"id": "http://example.edu/credentials/1872",
+							
+							"type": ["VerifiableCredential", "AlumniCredential"],
+							
+							"issuer": "https://example.edu/issuers/565049",
+							
+							"issuanceDate": "2010-01-01T19:23:24Z",
+							
+							"credentialSubject": {
+								
+								"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+								
+								"alumniOf": {
+								"id": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+								"name": [{
+									"value": "Example University",
+									"lang": "en"
+								}, {
+									"value": "Exemple d'Université",
+									"lang": "fr"
+								}]
+								}
+							},
+							
+							
+							"proof": {
+								
+								"type": "RsaSignature2018",
+								
+								"created": "2017-06-18T21:19:10Z",
+								
+								"proofPurpose": "assertionMethod",
+								
+								"verificationMethod": "https://example.edu/issuers/565049/keys/1",
+								
+								"jws": "eyJhbGciOiJSUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..TCYt5X
+								sITJX1CxPCT8yAV-TVkIEq_PbChOMqsLfRoPsnsgw5WEuts01mq-pQy7UJiN5mgRxD-WUc
+								X16dUEMGlv50aqzpqh4Qktb3rk-BuQy72IFLOqV0G_zS245-kronKb78cPN25DGlcTwLtj
+								PAYuNzVBAh4vGHSrQyHUdBBPM"
+							}
+							}
+							`}
+						</div>
 
-					<div className="menu-document">
-						<span
-							className={menuCurent == 0 ? "active" : ""}
-							onClick={() => setMenuCurent(0)}
-						>
-							Change document
-						</span>
-						<span
-							className={menuCurent == 1 ? "active" : ""}
-							onClick={() => setMenuCurent(1)}
-						>
-							Change status
-						</span>
-						<span
-							className={menuCurent == 2 ? "active" : ""}
-							onClick={() => setMenuCurent(2)}
-						>
-							Change controller
-						</span>
-						<span
-							className={menuCurent == 3 ? "active" : ""}
-							onClick={() => setMenuCurent(3)}
-						>
-							Delete document
-						</span>
-					</div>
-					<div class="content-document">
-						<div className={menuCurent == 0 ? "menu-item new-did" : "hide"}>
-							<div className="curent-attr">
-								{Object.keys(JSON.parse(didDoc.didDocument)).map((item, i) => {
-									let temp;
-									return (
-										<div>
-											<span>{item}:</span>{" "}
-											<input
-												type="text"
-												onChange={(ev) => {
-													temp = ev.target.value;
-												}}
-												placeholder={JSON.stringify(
-													JSON.parse(didDoc.didDocument)[item],
-												)}
-											/>
-											<button onClick={() => deleteAttribute(item)}>
-												Delete
-											</button>
-											<button
-												onClick={() => {
-													saveAttribute(item, temp);
-												}}
-											>
-												Save
-											</button>
-										</div>
-									);
-								})}
-							</div>
-							<div class="new-attr">
-								<select
-									name=""
-									id=""
-									onChange={(ev) => {
-										setCurentAttr(ev.target.value);
-									}}
-								>
-									{attributes.map((item, i) => {
-										return <option>{item}</option>;
-									})}
-								</select>
-								<button onClick={addAttribute}>Add attribute</button>
-							</div>
-							<button onClick={updateDIDDocument}>Save Changes</button>
-						</div>
-						<div className={menuCurent == 1 ? "menu-item" : "hide"}>
-							<div>
-								<select
-									name=""
-									id=""
-									onChange={(ev) => {
-										setCurentStatus(ev.target.value);
-									}}
-								>
-									<option>1</option>
-									<option>0</option>
-								</select>
-							</div>
-							<button onClick={updateDidStatus}>Save Changes</button>
-						</div>
-						<div className={menuCurent == 2 ? "menu-item" : "hide"}>
-							<div>
-								{/* <input type="text" placeholder="New PubKey" onChange={(ev)=>{setCurentPub(ev.target.value)}}/> */}
-								<input
-									type="text"
-									placeholder="New Address"
-									onChange={(ev) => {
-										setCurentAddr(ev.target.value);
-									}}
-								/>
-							</div>
-							<button onClick={updateDidPub}>Save Changes</button>
-						</div>
-						<div className={menuCurent == 3 ? "menu-item" : "hide"}>
-							<button onClick={deleteDid}>Delete Document</button>
-						</div>
-					</div>
-
-					<div className="note">
-						Note: Transactions can take 5 to 15 seconds
+						<button>Save as file</button>
+						<button>Save to blockchain</button>
 					</div>
 					<button onClick={backToLogin}>Back</button>
 				</div>
